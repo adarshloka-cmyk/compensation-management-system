@@ -21,6 +21,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 
 function App() {
+  /* AUTH STATES */
+
   const [user, setUser] =
     useState(null);
 
@@ -30,30 +32,77 @@ function App() {
   const [loading, setLoading] =
     useState(true);
 
-  /* SIDEBAR ACTIVE SECTION */
+  /* SIDEBAR SECTION */
 
   const [activeSection, setActiveSection] =
     useState("dashboard");
 
-  /* AUTH */
+  /* ADMIN MENU */
+
+  const adminMenu = [
+    {
+      key: "dashboard",
+      label: "Dashboard",
+    },
+
+    {
+      key: "cycles",
+      label: "Review Cycles",
+    },
+
+    {
+      key: "proposals",
+      label: "Salary Proposals",
+    },
+
+    {
+      key: "filters",
+      label:
+        "Filters & Sorting",
+    },
+  ];
+
+  /* EMPLOYEE MENU */
+
+  const employeeMenu = [
+    {
+      key: "dashboard",
+      label: "Dashboard",
+    },
+
+    {
+      key: "history",
+      label:
+        "Salary History",
+    },
+  ];
+
+  /* AUTH LISTENER */
 
   useEffect(() => {
     const unsubscribe =
       onAuthStateChanged(
         auth,
-        async (currentUser) => {
+        async (
+          currentUser
+        ) => {
           try {
             if (currentUser) {
-              setUser(currentUser);
-
-              const userRef = doc(
-                db,
-                "users",
-                currentUser.uid
+              setUser(
+                currentUser
               );
 
+              const userRef =
+                doc(
+                  db,
+                  "users",
+                  currentUser.uid
+                );
+
               const userSnap =
-                await getDoc(userRef);
+                await getDoc(
+                  userRef
+                );
 
               if (
                 userSnap.exists()
@@ -64,6 +113,8 @@ function App() {
                 setRole(
                   userData.role
                 );
+              } else {
+                setRole(null);
               }
             } else {
               setUser(null);
@@ -78,7 +129,8 @@ function App() {
         }
       );
 
-    return () => unsubscribe();
+    return () =>
+      unsubscribe();
   }, []);
 
   /* LOGOUT */
@@ -91,6 +143,10 @@ function App() {
         setUser(null);
 
         setRole(null);
+
+        setActiveSection(
+          "dashboard"
+        );
       } catch (error) {
         console.log(error);
       }
@@ -101,21 +157,7 @@ function App() {
   if (loading) {
     return (
       <div
-        style={{
-          display: "flex",
-
-          justifyContent:
-            "center",
-
-          alignItems:
-            "center",
-
-          height: "100vh",
-
-          color: "white",
-
-          fontSize: "24px",
-        }}
+        className="loading-screen"
       >
         Loading...
       </div>
@@ -128,125 +170,48 @@ function App() {
     return <Login />;
   }
 
+  /* MENU */
+
+  const menuItems =
+    role === "admin"
+      ? adminMenu
+      : employeeMenu;
+
   return (
     <div className="app-layout">
       {/* SIDEBAR */}
 
       <div className="sidebar">
         <div className="sidebar-top">
+          {/* LOGO */}
+
           <div className="logo">
             Compensation
             <br />
             Management
           </div>
 
-          {/* ADMIN SIDEBAR */}
+          {/* MENU ITEMS */}
 
-          {role === "admin" && (
-            <>
+          {menuItems.map(
+            (item) => (
               <div
+                key={item.key}
                 className={`sidebar-btn ${
                   activeSection ===
-                  "dashboard"
+                  item.key
                     ? "active"
                     : ""
                 }`}
                 onClick={() =>
                   setActiveSection(
-                    "dashboard"
+                    item.key
                   )
                 }
               >
-                Dashboard
+                {item.label}
               </div>
-
-              <div
-                className={`sidebar-btn ${
-                  activeSection ===
-                  "cycles"
-                    ? "active"
-                    : ""
-                }`}
-                onClick={() =>
-                  setActiveSection(
-                    "cycles"
-                  )
-                }
-              >
-                Review Cycles
-              </div>
-
-              <div
-                className={`sidebar-btn ${
-                  activeSection ===
-                  "proposals"
-                    ? "active"
-                    : ""
-                }`}
-                onClick={() =>
-                  setActiveSection(
-                    "proposals"
-                  )
-                }
-              >
-                Salary Proposals
-              </div>
-
-              <div
-                className={`sidebar-btn ${
-                  activeSection ===
-                  "filters"
-                    ? "active"
-                    : ""
-                }`}
-                onClick={() =>
-                  setActiveSection(
-                    "filters"
-                  )
-                }
-              >
-                Filters & Sorting
-              </div>
-            </>
-          )}
-
-          {/* EMPLOYEE SIDEBAR */}
-
-          {role ===
-            "employee" && (
-            <>
-              <div
-                className={`sidebar-btn ${
-                  activeSection ===
-                  "dashboard"
-                    ? "active"
-                    : ""
-                }`}
-                onClick={() =>
-                  setActiveSection(
-                    "dashboard"
-                  )
-                }
-              >
-                Dashboard
-              </div>
-
-              <div
-                className={`sidebar-btn ${
-                  activeSection ===
-                  "history"
-                    ? "active"
-                    : ""
-                }`}
-                onClick={() =>
-                  setActiveSection(
-                    "history"
-                  )
-                }
-              >
-                Salary History
-              </div>
-            </>
+            )
           )}
         </div>
 
@@ -268,39 +233,57 @@ function App() {
         {/* TOPBAR */}
 
         <div className="topbar">
-          <h2>
-            {role === "admin"
-              ? "Admin Dashboard"
-              : "Employee Dashboard"}
-          </h2>
+          <div>
+            <h2>
+              {role ===
+              "admin"
+                ? "Admin Dashboard"
+                : "Employee Dashboard"}
+            </h2>
+
+            <p
+              style={{
+                marginTop:
+                  "6px",
+
+                opacity: 0.7,
+
+                fontSize:
+                  "14px",
+              }}
+            >
+              Welcome back,{" "}
+              {user.email}
+            </p>
+          </div>
 
           <div className="user-box">
-            <div className="user-email">
-              {user.email}
+            <div
+              className="role-badge"
+            >
+              {role}
             </div>
           </div>
         </div>
 
-        {/* ADMIN CONTENT */}
+        {/* DASHBOARD CONTENT */}
 
-        {role === "admin" && (
-          <AdminDashboard
-            activeSection={
-              activeSection
-            }
-          />
-        )}
-
-        {/* EMPLOYEE CONTENT */}
-
-        {role ===
-          "employee" && (
-          <EmployeeDashboard
-            activeSection={
-              activeSection
-            }
-          />
-        )}
+        <div className="dashboard-container">
+          {role ===
+          "admin" ? (
+            <AdminDashboard
+              activeSection={
+                activeSection
+              }
+            />
+          ) : (
+            <EmployeeDashboard
+              activeSection={
+                activeSection
+              }
+            />
+          )}
+        </div>
       </div>
     </div>
   );

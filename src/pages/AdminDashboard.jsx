@@ -8,7 +8,6 @@ import {
   deleteDoc,
   doc,
   getDocs,
-  getDoc,
   orderBy,
   query,
   updateDoc,
@@ -36,7 +35,7 @@ export default function AdminDashboard({
   const [employees, setEmployees] =
     useState([]);
 
-  /* PROPOSAL */
+  /* CREATE PROPOSAL */
 
   const [selectedEmployee, setSelectedEmployee] =
     useState("");
@@ -58,7 +57,19 @@ export default function AdminDashboard({
   const [proposals, setProposals] =
     useState([]);
 
-  /* FILTERS */
+  /* EDIT */
+
+  const [editingProposalId, setEditingProposalId] =
+    useState(null);
+
+  const [editNewSalary, setEditNewSalary] =
+    useState("");
+
+  const [editChangeType, setEditChangeType] =
+    useState("Salary Increase");
+
+  const [editJustification, setEditJustification] =
+    useState("");
 
   const [filterStatus, setFilterStatus] =
     useState("");
@@ -66,8 +77,16 @@ export default function AdminDashboard({
   const [filterEmployee, setFilterEmployee] =
     useState("");
 
+  const [filterChangeType, setFilterChangeType] =
+    useState("");
+
   const [filterCycle, setFilterCycle] =
     useState("");
+
+  /* SORT */
+
+  const [sortField, setSortField] =
+    useState("createdAt");
 
   const [sortOrder, setSortOrder] =
     useState("desc");
@@ -101,10 +120,19 @@ export default function AdminDashboard({
       const list = [];
 
       snapshot.forEach((docSnap) => {
-        list.push({
-          id: docSnap.id,
-          ...docSnap.data(),
-        });
+        const data = docSnap.data();
+
+        /* REMOVE DELETED / INVALID */
+
+        if (
+          data.title &&
+          data.status
+        ) {
+          list.push({
+            id: docSnap.id,
+            ...data,
+          });
+        }
       });
 
       setCycles(list);
@@ -195,24 +223,65 @@ export default function AdminDashboard({
       );
     }
 
+    if (filterChangeType) {
+      updated = updated.filter(
+        (p) =>
+          p.changeType ===
+          filterChangeType
+      );
+    }
+
     if (filterCycle) {
       updated = updated.filter(
-        (p) => p.cycleId === filterCycle
+        (p) =>
+          p.cycleId ===
+          filterCycle
       );
     }
 
     updated.sort((a, b) => {
-      if (sortOrder === "asc") {
-        return (
-          a.costOfChange -
-          b.costOfChange
+      let valueA;
+      let valueB;
+
+      if (sortField === "cost") {
+        valueA =
+          Number(a.costOfChange);
+
+        valueB =
+          Number(b.costOfChange);
+      } else if (
+        sortField === "employee"
+      ) {
+        valueA =
+          a.employeeEmail
+            ?.toLowerCase() || "";
+
+        valueB =
+          b.employeeEmail
+            ?.toLowerCase() || "";
+
+        if (sortOrder === "asc") {
+          return valueA.localeCompare(
+            valueB
+          );
+        }
+
+        return valueB.localeCompare(
+          valueA
         );
+      } else {
+        valueA =
+          a.createdAt?.seconds || 0;
+
+        valueB =
+          b.createdAt?.seconds || 0;
       }
 
-      return (
-        b.costOfChange -
-        a.costOfChange
-      );
+      if (sortOrder === "asc") {
+        return valueA - valueB;
+      }
+
+      return valueB - valueA;
     });
 
     return updated;
@@ -220,7 +289,9 @@ export default function AdminDashboard({
     proposals,
     filterStatus,
     filterEmployee,
+    filterChangeType,
     filterCycle,
+    sortField,
     sortOrder,
   ]);
 
@@ -230,71 +301,75 @@ export default function AdminDashboard({
     1,
     Math.ceil(
       filteredProposals.length /
-        ITEMS_PER_PAGE
+      ITEMS_PER_PAGE
     )
   );
 
   const paginatedProposals =
     filteredProposals.slice(
       (currentPage - 1) *
-        ITEMS_PER_PAGE,
-
+      ITEMS_PER_PAGE,
       currentPage * ITEMS_PER_PAGE
     );
 
   /* CREATE CYCLE */
 
-  const handleCreateCycle = async () => {
-    try {
-      if (!title.trim()) {
-        alert("Cycle title required");
+  const handleCreateCycle =
+    async () => {
+      try {
+        if (!title.trim()) {
+          alert(
+            "Cycle title required"
+          );
 
-        return;
-      }
+          return;
+        }
 
-      if (
-        !budget ||
-        Number(budget) <= 0
-      ) {
-        alert(
-          "Budget must be positive"
+        if (
+          !budget ||
+          Number(budget) <= 0
+        ) {
+          alert(
+            "Budget must be positive"
+          );
+
+          return;
+        }
+
+        await addDoc(
+          collection(db, "reviewCycles"),
+          {
+            title,
+
+            effectiveDate,
+
+            totalBudget:
+              Number(budget),
+
+            status: "Open",
+
+            createdBy:
+              auth.currentUser.email,
+
+            createdAt: new Date(),
+          }
         );
 
-        return;
+        alert(
+          "Cycle created"
+        );
+
+        setTitle("");
+
+        setEffectiveDate("");
+
+        setBudget("");
+
+        fetchCycles();
+      } catch (error) {
+        console.log(error);
       }
-
-      await addDoc(
-        collection(db, "reviewCycles"),
-        {
-          title,
-
-          effectiveDate,
-
-          totalBudget:
-            Number(budget),
-
-          status: "Open",
-
-          createdBy:
-            auth.currentUser.email,
-
-          createdAt: new Date(),
-        }
-      );
-
-      alert("Cycle created");
-
-      setTitle("");
-
-      setEffectiveDate("");
-
-      setBudget("");
-
-      fetchCycles();
-    } catch (error) {
-      console.log(error);
-    }
-  };
+    };
 
   /* CREATE PROPOSAL */
 
@@ -307,7 +382,9 @@ export default function AdminDashboard({
           !newSalary ||
           !justification.trim()
         ) {
-          alert("Fill all fields");
+          alert(
+            "Fill all fields"
+          );
 
           return;
         }
@@ -319,19 +396,9 @@ export default function AdminDashboard({
               selectedEmployee
           );
 
-        const cycle =
-          cycles.find(
-            (c) =>
-              c.id ===
-              selectedCycle
-          );
-
-        const currentSalary =
-          employee.currentSalary;
-
         if (
           Number(newSalary) <=
-          currentSalary
+          employee.currentSalary
         ) {
           alert(
             "New salary must be greater than current salary"
@@ -340,15 +407,11 @@ export default function AdminDashboard({
           return;
         }
 
-        const costOfChange =
-          Number(newSalary) -
-          currentSalary;
-
         await addDoc(
           collection(db, "proposals"),
           {
             employeeId:
-              selectedEmployee,
+              employee.id,
 
             employeeEmail:
               employee.email,
@@ -356,18 +419,17 @@ export default function AdminDashboard({
             cycleId:
               selectedCycle,
 
-            cycleTitle:
-              cycle.title,
-
             changeType,
 
             currentSalarySnapshot:
-              currentSalary,
+              employee.currentSalary,
 
             proposedNewSalary:
               Number(newSalary),
 
-            costOfChange,
+            costOfChange:
+              Number(newSalary) -
+              employee.currentSalary,
 
             justification,
 
@@ -378,10 +440,15 @@ export default function AdminDashboard({
 
             createdAt:
               new Date(),
+
+            updatedAt:
+              new Date(),
           }
         );
 
-        alert("Proposal created");
+        alert(
+          "Proposal created"
+        );
 
         setSelectedEmployee("");
 
@@ -401,73 +468,121 @@ export default function AdminDashboard({
       }
     };
 
-  /* APPROVE */
+  /* EDIT */
+
+  const handleEditProposal =
+    async (proposalId) => {
+      try {
+        const proposal =
+          proposals.find(
+            (p) =>
+              p.id === proposalId
+          );
+
+        if (proposal.status !== "Proposed") {
+          alert("Cannot edit proposal that is already decided.");
+          return;
+        }
+
+        const cycle = cycles.find((c) => c.id === proposal.cycleId);
+        if (!cycle || cycle.status !== "Open") {
+          alert("Cannot edit proposal for a closed cycle.");
+          return;
+        }
+
+        if (
+          Number(editNewSalary) <=
+          proposal.currentSalarySnapshot
+        ) {
+          alert(
+            "New salary must be greater than current salary"
+          );
+
+          return;
+        }
+
+        await updateDoc(
+          doc(
+            db,
+            "proposals",
+            proposalId
+          ),
+          {
+            proposedNewSalary:
+              Number(
+                editNewSalary
+              ),
+
+            changeType:
+              editChangeType,
+
+            justification:
+              editJustification,
+
+            costOfChange:
+              Number(
+                editNewSalary
+              ) -
+              proposal.currentSalarySnapshot,
+
+            updatedAt:
+              new Date(),
+          }
+        );
+
+        alert(
+          "Proposal updated"
+        );
+
+        setEditingProposalId(
+          null
+        );
+
+        fetchProposals();
+      } catch (error) {
+        console.log(error);
+      }
+    };
 
   const handleApprove = async (
     proposal
   ) => {
     try {
+      if (proposal.status !== "Proposed") {
+        alert("Proposal is already decided.");
+        return;
+      }
+
       if (
         proposal.proposedBy ===
         auth.currentUser.email
       ) {
         alert(
-          "You cannot approve your own proposal"
+          "You cannot approve your own proposal."
         );
 
         return;
       }
 
-      const cycleRef = doc(
-        db,
-        "reviewCycles",
-        proposal.cycleId
+      const cycle = cycles.find((c) => c.id === proposal.cycleId);
+      if (!cycle) return;
+
+      const approvedProposalsForCycle = proposals.filter(
+        (p) => p.cycleId === proposal.cycleId && p.status === "Approved"
       );
 
-      const cycleSnap =
-        await getDoc(cycleRef);
-
-      const cycleData =
-        cycleSnap.data();
-
-      const allProposals =
-        await getDocs(
-          collection(db, "proposals")
-        );
-
-      let approvedTotal = 0;
-
-      allProposals.forEach(
-        (docSnap) => {
-          const data =
-            docSnap.data();
-
-          if (
-            data.cycleId ===
-              proposal.cycleId &&
-            data.status ===
-              "Approved"
-          ) {
-            approvedTotal +=
-              data.costOfChange;
-          }
-        }
+      const currentApprovedCost = approvedProposalsForCycle.reduce(
+        (sum, p) => sum + Number(p.costOfChange),
+        0
       );
 
-      const remainingBudget =
-        cycleData.totalBudget -
-        approvedTotal;
-
-      if (
-        proposal.costOfChange >
-        remainingBudget
-      ) {
-        alert(
-          `Budget exceeded. Remaining Budget: ₹${remainingBudget}`
-        );
-
+      if (currentApprovedCost + Number(proposal.costOfChange) > cycle.totalBudget) {
+        const remaining = cycle.totalBudget - currentApprovedCost;
+        alert(`Approval blocked! Remaining budget is ₹${remaining}, but this change costs ₹${proposal.costOfChange}.`);
         return;
       }
+
+      const decisionNote = window.prompt("Enter a decision note (optional):");
 
       await updateDoc(
         doc(
@@ -481,18 +596,73 @@ export default function AdminDashboard({
           decidedBy:
             auth.currentUser.email,
 
+          decisionNote: decisionNote || null,
+
           decidedAt:
+            new Date(),
+
+          updatedAt:
             new Date(),
         }
       );
 
-      alert("Proposal approved");
+      alert(
+        "Proposal approved"
+      );
 
-      fetchProposals();
-    } catch (error) {
-      console.log(error);
-    }
-  };
+        // Add functionality to update employee directly if approved immediately (user request)
+        const cycleToUpdate = cycles.find((c) => c.id === proposal.cycleId);
+        if (cycleToUpdate && cycleToUpdate.status === "Open") {
+          await updateDoc(
+            doc(
+              db,
+              "users",
+              proposal.employeeId
+            ),
+            {
+              currentSalary:
+                proposal.proposedNewSalary,
+
+              effectiveDate:
+                cycleToUpdate.effectiveDate,
+            }
+          );
+
+          await addDoc(
+            collection(
+              db,
+              "salaryHistory"
+            ),
+            {
+              employeeId:
+                proposal.employeeId,
+
+              proposalId:
+                proposal.id,
+
+              changeType:
+                proposal.changeType,
+
+              previousSalary:
+                proposal.currentSalarySnapshot,
+
+              newSalary:
+                proposal.proposedNewSalary,
+
+              effectiveDate:
+                cycleToUpdate.effectiveDate,
+
+              appliedAt:
+                new Date(),
+            }
+          );
+        }
+
+        fetchProposals();
+      } catch (error) {
+        console.log(error);
+      }
+    };
 
   /* REJECT */
 
@@ -500,20 +670,23 @@ export default function AdminDashboard({
     proposal
   ) => {
     try {
+      if (proposal.status !== "Proposed") {
+        alert("Proposal is already decided.");
+        return;
+      }
+
       if (
         proposal.proposedBy ===
         auth.currentUser.email
       ) {
         alert(
-          "You cannot reject your own proposal"
+          "You cannot reject your own proposal."
         );
 
         return;
       }
 
-      const note = prompt(
-        "Enter rejection note"
-      );
+      const decisionNote = window.prompt("Enter a decision note (optional):");
 
       await updateDoc(
         doc(
@@ -524,18 +697,22 @@ export default function AdminDashboard({
         {
           status: "Rejected",
 
-          decisionNote:
-            note || "",
-
           decidedBy:
             auth.currentUser.email,
 
+          decisionNote: decisionNote || null,
+
           decidedAt:
+            new Date(),
+
+          updatedAt:
             new Date(),
         }
       );
 
-      alert("Proposal rejected");
+      alert(
+        "Proposal rejected"
+      );
 
       fetchProposals();
     } catch (error) {
@@ -546,27 +723,17 @@ export default function AdminDashboard({
   /* DELETE */
 
   const handleDeleteProposal =
-    async (proposal) => {
+    async (proposalId) => {
       try {
-        if (
-          proposal.proposedBy !==
-          auth.currentUser.email
-        ) {
-          alert(
-            "Delete only your own proposals"
-          );
-
+        const proposal = proposals.find(p => p.id === proposalId);
+        if (proposal.status !== "Proposed") {
+          alert("Cannot delete a decided proposal.");
           return;
         }
 
-        if (
-          proposal.status !==
-          "Proposed"
-        ) {
-          alert(
-            "Only proposed proposals can be deleted"
-          );
-
+        const cycle = cycles.find(c => c.id === proposal.cycleId);
+        if (!cycle || cycle.status !== "Open") {
+          alert("Cannot delete proposal for a closed cycle.");
           return;
         }
 
@@ -574,11 +741,13 @@ export default function AdminDashboard({
           doc(
             db,
             "proposals",
-            proposal.id
+            proposalId
           )
         );
 
-        alert("Proposal deleted");
+        alert(
+          "Proposal deleted"
+        );
 
         fetchProposals();
       } catch (error) {
@@ -588,100 +757,31 @@ export default function AdminDashboard({
 
   /* CLOSE CYCLE */
 
-  const handleCloseCycle = async (
-    cycle
-  ) => {
-    try {
-      const snapshot =
-        await getDocs(
-          collection(db, "proposals")
-        );
+  const handleCloseCycle =
+    async (cycle) => {
+      try {
+        const cycleProposals =
+          proposals.filter(
+            (p) =>
+              p.cycleId ===
+              cycle.id
+          );
 
-      const cycleProposals = [];
-
-      snapshot.forEach(
-        (docSnap) => {
-          const data =
-            docSnap.data();
-
-          if (
-            data.cycleId ===
-            cycle.id
-          ) {
-            cycleProposals.push({
-              id: docSnap.id,
-              ...data,
-            });
-          }
-        }
-      );
-
-      const pending =
+      const unresolved =
         cycleProposals.filter(
           (p) =>
             p.status ===
             "Proposed"
         );
 
-      if (pending.length > 0) {
+      if (
+        unresolved.length > 0
+      ) {
         alert(
-          `${pending.length} unresolved proposals remaining`
+          `${unresolved.length} unresolved proposal(s)`
         );
 
         return;
-      }
-
-      const approved =
-        cycleProposals.filter(
-          (p) =>
-            p.status ===
-            "Approved"
-        );
-
-      for (const proposal of approved) {
-        await updateDoc(
-          doc(
-            db,
-            "users",
-            proposal.employeeId
-          ),
-          {
-            currentSalary:
-              proposal.proposedNewSalary,
-
-            effectiveDate:
-              cycle.effectiveDate,
-          }
-        );
-
-        await addDoc(
-          collection(
-            db,
-            "salaryHistory"
-          ),
-          {
-            employeeId:
-              proposal.employeeId,
-
-            proposalId:
-              proposal.id,
-
-            changeType:
-              proposal.changeType,
-
-            previousSalary:
-              proposal.currentSalarySnapshot,
-
-            newSalary:
-              proposal.proposedNewSalary,
-
-            effectiveDate:
-              cycle.effectiveDate,
-
-            appliedAt:
-              new Date(),
-          }
-        );
       }
 
       await updateDoc(
@@ -705,97 +805,32 @@ export default function AdminDashboard({
     }
   };
 
-  return (
-    <div className="dashboard-container">
-      {/* DASHBOARD */}
+return (
+  <div className="dashboard-container">
+    {activeSection ===
+      "dashboard" && (
+        <div className="glass-card">
+          <h1>
+            Admin Dashboard
+          </h1>
 
-      {activeSection ===
-        "dashboard" && (
-        <>
-          <div className="glass-card">
-            <h1
-              style={{
-                fontSize: "42px",
-                marginBottom:
-                  "18px",
-              }}
-            >
-              Welcome Admin
-            </h1>
-
-            <p>
-              Manage salary review
-              cycles, proposals,
-              approvals, budgets,
-              and employee
-              compensation securely.
-            </p>
-          </div>
-
-          <div className="cycles-list">
-            <div className="cycle-card">
-              <h3>
-                Total Cycles
-              </h3>
-
-              <p
-                style={{
-                  fontSize: "36px",
-                  fontWeight:
-                    "700",
-                }}
-              >
-                {cycles.length}
-              </p>
-            </div>
-
-            <div className="cycle-card">
-              <h3>
-                Total Proposals
-              </h3>
-
-              <p
-                style={{
-                  fontSize: "36px",
-                  fontWeight:
-                    "700",
-                }}
-              >
-                {
-                  proposals.length
-                }
-              </p>
-            </div>
-
-            <div className="cycle-card">
-              <h3>
-                Employees
-              </h3>
-
-              <p
-                style={{
-                  fontSize: "36px",
-                  fontWeight:
-                    "700",
-                }}
-              >
-                {
-                  employees.length
-                }
-              </p>
-            </div>
-          </div>
-        </>
+          <p>
+            Welcome back,{" "}
+            {
+              auth.currentUser
+                ?.email
+            }
+          </p>
+        </div>
       )}
 
-      {/* REVIEW CYCLES */}
-
-      {activeSection ===
-        "cycles" && (
+    {activeSection ===
+      "cycles" && (
         <>
           <div className="cycle-form">
             <h2>
-              Create Review Cycle
+              Create Review
+              Cycle
             </h2>
 
             <input
@@ -844,77 +879,79 @@ export default function AdminDashboard({
           <div className="cycles-list">
             {cycles.map((cycle) => (
               <div
-                className="cycle-card"
                 key={cycle.id}
+                className="cycle-card"
               >
                 <h3>
                   {cycle.title}
                 </h3>
 
                 <p>
-                  <strong>
-                    Status:
-                  </strong>{" "}
+                  Budget: ₹
+                  {
+                    cycle.totalBudget
+                  }
+                </p>
+
+                {(() => {
+                  const approvedProposalsForCycle = proposals.filter(
+                    (p) => p.cycleId === cycle.id && p.status === "Approved"
+                  );
+                  const currentApprovedCost = approvedProposalsForCycle.reduce(
+                    (sum, p) => sum + Number(p.costOfChange),
+                    0
+                  );
+                  return (
+                    <>
+                      <p>Used: ₹{currentApprovedCost}</p>
+                      <p>Remaining: ₹{cycle.totalBudget - currentApprovedCost}</p>
+                    </>
+                  );
+                })()}
+
+                <p>
+                  Status:{" "}
                   {
                     cycle.status
                   }
                 </p>
 
                 <p>
-                  <strong>
-                    Budget:
-                  </strong>{" "}
-                  ₹
-                  {
-                    cycle.totalBudget
-                  }
-                </p>
-
-                <p>
-                  <strong>
-                    Effective:
-                  </strong>{" "}
+                  Effective Date:
+                  {" "}
                   {
                     cycle.effectiveDate
                   }
                 </p>
 
-                <p>
-                  <strong>
-                    Created By:
-                  </strong>{" "}
-                  {
-                    cycle.createdBy
-                  }
-                </p>
-
                 {cycle.status ===
                   "Open" && (
-                  <button
-                    onClick={() =>
-                      handleCloseCycle(
-                        cycle
-                      )
-                    }
-                  >
-                    Close Cycle
-                  </button>
-                )}
+                    <button
+                      style={{
+                        marginTop:
+                          "15px",
+                      }}
+                      onClick={() =>
+                        handleCloseCycle(
+                          cycle
+                        )
+                      }
+                    >
+                      Close Cycle
+                    </button>
+                  )}
               </div>
             ))}
           </div>
         </>
       )}
 
-      {/* PROPOSALS */}
-
-      {activeSection ===
-        "proposals" && (
+    {activeSection ===
+      "proposals" && (
         <>
           <div className="cycle-form">
             <h2>
-              Create Salary
-              Proposal
+              Create Proposal
             </h2>
 
             <select
@@ -945,12 +982,13 @@ export default function AdminDashboard({
               )}
             </select>
 
+            {/* CURRENT SALARY DISPLAY */}
+
             {selectedEmployeeData && (
               <div className="glass-card">
                 <p>
                   <strong>
-                    Current
-                    Salary:
+                    Current Salary:
                   </strong>{" "}
                   ₹
                   {
@@ -960,8 +998,7 @@ export default function AdminDashboard({
 
                 <p>
                   <strong>
-                    Effective
-                    Date:
+                    Effective Date:
                   </strong>{" "}
                   {new Date(
                     selectedEmployeeData.effectiveDate
@@ -984,8 +1021,13 @@ export default function AdminDashboard({
                 Select Cycle
               </option>
 
-              {cycles.map(
-                (cycle) => (
+              {cycles
+                .filter(
+                  (cycle) =>
+                    cycle.status ===
+                    "Open"
+                )
+                .map((cycle) => (
                   <option
                     key={
                       cycle.id
@@ -998,8 +1040,7 @@ export default function AdminDashboard({
                       cycle.title
                     }
                   </option>
-                )
-              )}
+                ))}
             </select>
 
             <select
@@ -1021,8 +1062,7 @@ export default function AdminDashboard({
               </option>
 
               <option>
-                Market
-                Adjustment
+                Market Adjustment
               </option>
             </select>
 
@@ -1064,10 +1104,10 @@ export default function AdminDashboard({
             {paginatedProposals.map(
               (proposal) => (
                 <div
-                  className="cycle-card"
                   key={
                     proposal.id
                   }
+                  className="cycle-card"
                 >
                   <h3>
                     {
@@ -1076,27 +1116,14 @@ export default function AdminDashboard({
                   </h3>
 
                   <p>
-                    <strong>
-                      Cycle:
-                    </strong>{" "}
+                    Type:{" "}
                     {
-                      proposal.cycleTitle
+                      proposal.changeType
                     }
                   </p>
 
                   <p>
-                    <strong>
-                      Status:
-                    </strong>{" "}
-                    {
-                      proposal.status
-                    }
-                  </p>
-
-                  <p>
-                    <strong>
-                      Current:
-                    </strong>{" "}
+                    Current Salary:
                     ₹
                     {
                       proposal.currentSalarySnapshot
@@ -1104,9 +1131,7 @@ export default function AdminDashboard({
                   </p>
 
                   <p>
-                    <strong>
-                      Proposed:
-                    </strong>{" "}
+                    Proposed Salary:
                     ₹
                     {
                       proposal.proposedNewSalary
@@ -1114,130 +1139,198 @@ export default function AdminDashboard({
                   </p>
 
                   <p>
-                    <strong>
-                      Cost:
-                    </strong>{" "}
-                    ₹
+                    Cost: ₹
                     {
                       proposal.costOfChange
                     }
                   </p>
 
                   <p>
-                    <strong>
-                      Proposed
-                      By:
-                    </strong>{" "}
+                  Status:{" "}
+                  <span className={proposal.status === "Approved" ? "status-approved" : proposal.status === "Rejected" ? "status-rejected" : "status-proposed"}>
                     {
-                      proposal.proposedBy
+                      proposal.status
                     }
+                  </span>
                   </p>
 
-                  {proposal.status ===
-                    "Proposed" && (
-                    <div
-                      style={{
-                        display:
-                          "flex",
+                  <p>
+                    Proposed By:{" "}
+                    {proposal.proposedBy}
+                  </p>
 
-                        gap: "10px",
+                  <p>
+                    Created At:{" "}
+                    {proposal.createdAt && new Date(proposal.createdAt.seconds * 1000).toLocaleDateString()}
+                  </p>
 
-                        flexWrap:
-                          "wrap",
-
-                        marginTop:
-                          "14px",
-                      }}
-                    >
-                      <button
-                        onClick={() =>
-                          handleApprove(
-                            proposal
-                          )
-                        }
-                      >
-                        Approve
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          handleReject(
-                            proposal
-                          )
-                        }
-                      >
-                        Reject
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          handleDeleteProposal(
-                            proposal
-                          )
-                        }
-                      >
-                        Delete
-                      </button>
+                  {proposal.decisionNote && (
+                    <div style={{ padding: "10px", marginTop: "10px", background: "rgba(0,0,0,0.2)", borderRadius: "8px" }}>
+                      <strong>Note from {proposal.decidedBy}:</strong>
+                      <p>{proposal.decisionNote}</p>
                     </div>
                   )}
+
+                  <div
+                    style={{
+                      display:
+                        "flex",
+
+                      gap: "10px",
+
+                      flexWrap:
+                        "wrap",
+
+                      marginTop:
+                        "15px",
+                    }}
+                  >
+                    <button
+                      onClick={() =>
+                        handleApprove(
+                          proposal
+                        )
+                      }
+                    >
+                      Approve
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        handleReject(
+                          proposal
+                        )
+                      }
+                    >
+                      Reject
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        handleDeleteProposal(
+                          proposal.id
+                        )
+                      }
+                    >
+                      Delete
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setEditingProposalId(
+                          proposal.id
+                        );
+
+                        setEditNewSalary(
+                          proposal.proposedNewSalary
+                        );
+
+                        setEditChangeType(
+                          proposal.changeType
+                        );
+
+                        setEditJustification(
+                          proposal.justification
+                        );
+                      }}
+                    >
+                      Edit
+                    </button>
+                  </div>
+
+                  {editingProposalId ===
+                    proposal.id && (
+                      <div
+                        className="glass-card"
+                        style={{
+                          marginTop:
+                            "20px",
+                        }}
+                      >
+                        <select
+                          value={
+                            editChangeType
+                          }
+                          onChange={(
+                            e
+                          ) =>
+                            setEditChangeType(
+                              e
+                                .target
+                                .value
+                            )
+                          }
+                        >
+                          <option>
+                            Salary
+                            Increase
+                          </option>
+
+                          <option>
+                            Promotion
+                          </option>
+
+                          <option>
+                            Market
+                            Adjustment
+                          </option>
+                        </select>
+
+                        <input
+                          type="number"
+                          value={
+                            editNewSalary
+                          }
+                          onChange={(
+                            e
+                          ) =>
+                            setEditNewSalary(
+                              e
+                                .target
+                                .value
+                            )
+                          }
+                        />
+
+                        <textarea
+                          value={
+                            editJustification
+                          }
+                          onChange={(
+                            e
+                          ) =>
+                            setEditJustification(
+                              e
+                                .target
+                                .value
+                            )
+                          }
+                        />
+
+                        <button
+                          onClick={() =>
+                            handleEditProposal(
+                              proposal.id
+                            )
+                          }
+                        >
+                          Save Changes
+                        </button>
+                      </div>
+                    )}
                 </div>
               )
             )}
           </div>
-
-          <div className="pagination">
-            <button
-              disabled={
-                currentPage ===
-                1
-              }
-              onClick={() =>
-                setCurrentPage(
-                  currentPage -
-                    1
-                )
-              }
-            >
-              Prev
-            </button>
-
-            <p>
-              Page{" "}
-              {currentPage} of{" "}
-              {totalPages}
-            </p>
-
-            <button
-              disabled={
-                currentPage ===
-                totalPages
-              }
-              onClick={() =>
-                setCurrentPage(
-                  currentPage +
-                    1
-                )
-              }
-            >
-              Next
-            </button>
-          </div>
         </>
       )}
 
-      {/* FILTERS */}
-
-      {activeSection ===
-        "filters" && (
+    {activeSection ===
+      "filters" && (
         <>
           <div className="glass-card">
-            <h2
-              style={{
-                marginBottom:
-                  "20px",
-              }}
-            >
-              Proposal Filters &
+            <h2>
+              Filters &
               Sorting
             </h2>
 
@@ -1246,12 +1339,9 @@ export default function AdminDashboard({
                 value={
                   filterStatus
                 }
-                onChange={(
-                  e
-                ) =>
+                onChange={(e) =>
                   setFilterStatus(
-                    e.target
-                      .value
+                    e.target.value
                   )
                 }
               >
@@ -1274,78 +1364,83 @@ export default function AdminDashboard({
 
               <input
                 type="text"
-                placeholder="Search Employee Email"
+                placeholder="Employee"
                 value={
                   filterEmployee
                 }
-                onChange={(
-                  e
-                ) =>
+                onChange={(e) =>
                   setFilterEmployee(
-                    e.target
-                      .value
+                    e.target.value
                   )
                 }
               />
 
               <select
                 value={
-                  filterCycle
+                  filterChangeType
                 }
-                onChange={(
-                  e
-                ) =>
-                  setFilterCycle(
-                    e.target
-                      .value
+                onChange={(e) =>
+                  setFilterChangeType(
+                    e.target.value
                   )
                 }
               >
                 <option value="">
-                  All Cycles
+                  All Types
                 </option>
 
-                {cycles.map(
-                  (
-                    cycle
-                  ) => (
-                    <option
-                      key={
-                        cycle.id
-                      }
-                      value={
-                        cycle.id
-                      }
-                    >
-                      {
-                        cycle.title
-                      }
-                    </option>
+                <option value="Salary Increase">
+                  Salary Increase
+                </option>
+
+                <option value="Promotion">
+                  Promotion
+                </option>
+
+                <option value="Market Adjustment">
+                  Market Adjustment
+                </option>
+              </select>
+
+              <select
+                value={
+                  sortField
+                }
+                onChange={(e) =>
+                  setSortField(
+                    e.target.value
                   )
-                )}
+                }
+              >
+                <option value="createdAt">
+                  Created Date
+                </option>
+
+                <option value="cost">
+                  Cost
+                </option>
+
+                <option value="employee">
+                  Employee
+                </option>
               </select>
 
               <select
                 value={
                   sortOrder
                 }
-                onChange={(
-                  e
-                ) =>
+                onChange={(e) =>
                   setSortOrder(
-                    e.target
-                      .value
+                    e.target.value
                   )
                 }
               >
                 <option value="desc">
-                  Highest
-                  Cost
+                  Desc
                 </option>
 
                 <option value="asc">
-                  Lowest
-                  Cost
+                  Asc
                 </option>
               </select>
             </div>
@@ -1355,10 +1450,10 @@ export default function AdminDashboard({
             {paginatedProposals.map(
               (proposal) => (
                 <div
-                  className="cycle-card"
                   key={
                     proposal.id
                   }
+                  className="cycle-card"
                 >
                   <h3>
                     {
@@ -1367,38 +1462,82 @@ export default function AdminDashboard({
                   </h3>
 
                   <p>
-                    <strong>
-                      Status:
-                    </strong>{" "}
+                    Type:{" "}
                     {
-                      proposal.status
+                      proposal.changeType
                     }
                   </p>
 
                   <p>
-                    <strong>
-                      Cost:
-                    </strong>{" "}
+                    Current Salary:
                     ₹
+                    {
+                      proposal.currentSalarySnapshot
+                    }
+                  </p>
+
+                  <p>
+                    Proposed Salary:
+                    ₹
+                    {
+                      proposal.proposedNewSalary
+                    }
+                  </p>
+
+                  <p>
+                    Cost: ₹
                     {
                       proposal.costOfChange
                     }
                   </p>
 
                   <p>
-                    <strong>
-                      Cycle:
-                    </strong>{" "}
+                    Status:{" "}
                     {
-                      proposal.cycleTitle
+                      proposal.status
                     }
                   </p>
                 </div>
               )
             )}
           </div>
+
+          <div className="pagination">
+            <button
+              disabled={
+                currentPage === 1
+              }
+              onClick={() =>
+                setCurrentPage(
+                  currentPage - 1
+                )
+              }
+            >
+              Previous
+            </button>
+
+            <span>
+              Page{" "}
+              {currentPage} of{" "}
+              {totalPages}
+            </span>
+
+            <button
+              disabled={
+                currentPage ===
+                totalPages
+              }
+              onClick={() =>
+                setCurrentPage(
+                  currentPage + 1
+                )
+              }
+            >
+              Next
+            </button>
+          </div>
         </>
       )}
-    </div>
+  </div>
   );
 }

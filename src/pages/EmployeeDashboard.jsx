@@ -5,358 +5,346 @@ import { auth, db } from "../firebase";
 import {
   collection,
   getDocs,
+  orderBy,
   query,
-  where,
 } from "firebase/firestore";
 
-export default function EmployeeDashboard({
-  activeSection,
-}) {
-  const [userData, setUserData] =
+export default function EmployeeDashboard() {
+  /* EMPLOYEE */
+
+  const [employeeData, setEmployeeData] =
     useState(null);
+
+  /* HISTORY */
 
   const [salaryHistory, setSalaryHistory] =
     useState([]);
 
-  /* FETCH EMPLOYEE DATA */
+  /* LOADING */
 
-  const fetchUserData =
+  const [loading, setLoading] =
+    useState(true);
+
+  /* FETCH EMPLOYEE */
+
+  const fetchEmployeeData =
     async () => {
       try {
         const snapshot =
           await getDocs(
-            query(
-              collection(
-                db,
-                "users"
-              ),
-              where(
-                "email",
-                "==",
-                auth.currentUser.email
-              )
-            )
+            collection(db, "users")
           );
+
+        let currentEmployee =
+          null;
 
         snapshot.forEach(
           (docSnap) => {
-            setUserData({
-              id: docSnap.id,
-              ...docSnap.data(),
-            });
+            const data =
+              docSnap.data();
+
+            if (
+              data.email ===
+              auth.currentUser
+                ?.email
+            ) {
+              currentEmployee =
+                {
+                  id: docSnap.id,
+                  ...data,
+                };
+            }
           }
+        );
+
+        setEmployeeData(
+          currentEmployee
         );
       } catch (error) {
         console.log(error);
       }
     };
 
-  /* FETCH SALARY HISTORY */
+  /* FETCH HISTORY */
 
   const fetchSalaryHistory =
-    async () => {
+    async (employeeId) => {
       try {
-        const userSnapshot =
-          await getDocs(
-            query(
+        const q = query(
+          collection(
+            db,
+            "salaryHistory"
+          ),
+          orderBy(
+            "appliedAt",
+            "desc"
+          )
+        );
+
+        const snapshot =
+          await getDocs(q);
+
+        const list = [];
+
+        snapshot.forEach(
+          (docSnap) => {
+            const data =
+              docSnap.data();
+
+            if (
+              data.employeeId ===
+              employeeId
+            ) {
+              list.push({
+                id: docSnap.id,
+                ...data,
+              });
+            }
+          }
+        );
+
+        setSalaryHistory(list);
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+  /* INITIAL LOAD */
+
+  useEffect(() => {
+    const loadData =
+      async () => {
+        setLoading(true);
+
+        try {
+          const snapshot =
+            await getDocs(
               collection(
                 db,
                 "users"
-              ),
-              where(
-                "email",
-                "==",
-                auth.currentUser.email
               )
-            )
+            );
+
+          let employee =
+            null;
+
+          snapshot.forEach(
+            (docSnap) => {
+              const data =
+                docSnap.data();
+
+              if (
+                data.email ===
+                auth.currentUser
+                  ?.email
+              ) {
+                employee =
+                  {
+                    id: docSnap.id,
+                    ...data,
+                  };
+              }
+            }
           );
 
-        let employeeId = "";
-
-        userSnapshot.forEach(
-          (docSnap) => {
-            employeeId =
-              docSnap.id;
-          }
-        );
-
-        if (!employeeId) return;
-
-        const historySnapshot =
-          await getDocs(
-            query(
-              collection(
-                db,
-                "salaryHistory"
-              ),
-              where(
-                "employeeId",
-                "==",
-                employeeId
-              )
-            )
+          setEmployeeData(
+            employee
           );
 
-        const historyList = [];
-
-        historySnapshot.forEach(
-          (docSnap) => {
-            historyList.push({
-              id: docSnap.id,
-              ...docSnap.data(),
-            });
+          if (employee) {
+            await fetchSalaryHistory(
+              employee.id
+            );
           }
-        );
+        } catch (error) {
+          console.log(error);
+        }
 
-        setSalaryHistory(
-          historyList
-        );
-      } catch (error) {
-        console.log(error);
-      }
-    };
+        setLoading(false);
+      };
 
-  useEffect(() => {
-    fetchUserData();
-
-    fetchSalaryHistory();
+    loadData();
   }, []);
 
-  if (!userData) {
+  /* AUTO REFRESH */
+
+  useEffect(() => {
+    const interval =
+      setInterval(async () => {
+        await fetchEmployeeData();
+      }, 3000);
+
+    return () =>
+      clearInterval(interval);
+  }, []);
+
+  /* RELOAD HISTORY WHEN SALARY UPDATES */
+
+  useEffect(() => {
+    if (employeeData?.id) {
+      fetchSalaryHistory(
+        employeeData.id
+      );
+    }
+  }, [employeeData]);
+
+  /* LOADING */
+
+  if (loading) {
     return (
-      <div
-        className="glass-card"
-        style={{
-          textAlign: "center",
-        }}
-      >
-        Loading Employee Data...
+      <div className="dashboard-container">
+        <div className="glass-card">
+          <h2>
+            Loading Employee
+            Dashboard...
+          </h2>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="dashboard-container">
-      {/* DASHBOARD */}
+      {/* HEADER */}
 
-      {activeSection ===
-        "dashboard" && (
-        <>
-          <div className="glass-card">
-            <h1
-              style={{
-                marginBottom:
-                  "25px",
+      <div className="glass-card">
+        <h1>
+          Employee Dashboard
+        </h1>
 
-                fontSize: "40px",
-              }}
-            >
-              Welcome Back
-            </h1>
+        <p>
+          Welcome back,{" "}
+          {
+            employeeData?.email
+          }
+        </p>
+      </div>
 
-            <p
-              style={{
-                marginBottom:
-                  "14px",
-              }}
-            >
-              <strong>
-                Employee Email:
-              </strong>{" "}
-              {userData.email}
-            </p>
+      {/* CURRENT SALARY */}
 
-            <p
-              style={{
-                marginBottom:
-                  "14px",
-              }}
-            >
-              <strong>
-                Role:
-              </strong>{" "}
-              {userData.role}
-            </p>
+      <div className="glass-card">
+        <h2>
+          Current Salary
+        </h2>
 
-            <p
-              style={{
-                marginBottom:
-                  "14px",
-              }}
-            >
-              <strong>
-                Current Salary:
-              </strong>{" "}
-              ₹
-              {
-                userData.currentSalary
-              }
-            </p>
+        <div
+          style={{
+            marginTop: "20px",
+            display: "flex",
+            flexDirection:
+              "column",
+            gap: "12px",
+          }}
+        >
+          <p>
+            <strong>
+              Base Salary:
+            </strong>{" "}
+            ₹
+            {employeeData?.currentSalary?.toLocaleString()}
+          </p>
 
-            <p>
-              <strong>
-                Effective Date:
-              </strong>{" "}
-              {new Date(
-                userData.effectiveDate
-              ).toLocaleDateString()}
-            </p>
-          </div>
+          <p>
+            <strong>
+              Effective Date:
+            </strong>{" "}
+            {employeeData?.effectiveDate
+              ? new Date(
+                  employeeData.effectiveDate
+                ).toLocaleDateString()
+              : "N/A"}
+          </p>
 
-          {/* QUICK STATS */}
-
-          <div className="cycles-list">
-            <div className="cycle-card">
-              <h3>
-                Total Salary
-              </h3>
-
-              <p
-                style={{
-                  fontSize: "30px",
-
-                  fontWeight:
-                    "700",
-                }}
-              >
-                ₹
-                {
-                  userData.currentSalary
-                }
-              </p>
-            </div>
-
-            <div className="cycle-card">
-              <h3>
-                Salary Changes
-              </h3>
-
-              <p
-                style={{
-                  fontSize: "30px",
-
-                  fontWeight:
-                    "700",
-                }}
-              >
-                {
-                  salaryHistory.length
-                }
-              </p>
-            </div>
-
-            <div className="cycle-card">
-              <h3>
-                Account Type
-              </h3>
-
-              <p
-                style={{
-                  fontSize: "30px",
-
-                  fontWeight:
-                    "700",
-
-                  textTransform:
-                    "capitalize",
-                }}
-              >
-                {userData.role}
-              </p>
-            </div>
-          </div>
-        </>
-      )}
+          <p>
+            <strong>
+              Role:
+            </strong>{" "}
+            {
+              employeeData?.role
+            }
+          </p>
+        </div>
+      </div>
 
       {/* SALARY HISTORY */}
 
-      {activeSection ===
-        "history" && (
-        <>
-          <div className="glass-card">
-            <h1
-              style={{
-                marginBottom:
-                  "25px",
+      <div className="glass-card">
+        <h2>
+          Salary Change
+          History
+        </h2>
 
-                fontSize: "38px",
-              }}
-            >
-              Salary Change History
-            </h1>
+        {salaryHistory.length ===
+        0 ? (
+          <div
+            style={{
+              marginTop: "20px",
+            }}
+          >
+            <p>
+              No salary
+              history found.
+            </p>
+          </div>
+        ) : (
+          <div className="cycles-list">
+            {salaryHistory.map(
+              (history) => (
+                <div
+                  key={history.id}
+                  className="cycle-card"
+                >
+                  <h3>
+                    {
+                      history.changeType
+                    }
+                  </h3>
 
-            {salaryHistory.length ===
-            0 ? (
-              <p>
-                No salary history
-                available yet.
-              </p>
-            ) : (
-              <div className="cycles-list">
-                {salaryHistory.map(
-                  (history) => (
-                    <div
-                      className="cycle-card"
-                      key={
-                        history.id
-                      }
-                    >
-                      <h3>
-                        {
-                          history.changeType
-                        }
-                      </h3>
+                  <p>
+                    <strong>
+                      Previous Salary:
+                    </strong>{" "}
+                    ₹
+                    {history.previousSalary?.toLocaleString()}
+                  </p>
 
-                      <p>
-                        <strong>
-                          Previous
-                          Salary:
-                        </strong>{" "}
-                        ₹
-                        {
-                          history.previousSalary
-                        }
-                      </p>
+                  <p>
+                    <strong>
+                      New Salary:
+                    </strong>{" "}
+                    ₹
+                    {history.newSalary?.toLocaleString()}
+                  </p>
 
-                      <p>
-                        <strong>
-                          New
-                          Salary:
-                        </strong>{" "}
-                        ₹
-                        {
-                          history.newSalary
-                        }
-                      </p>
-
-                      <p>
-                        <strong>
-                          Effective
-                          Date:
-                        </strong>{" "}
-                        {new Date(
+                  <p>
+                    <strong>
+                      Effective Date:
+                    </strong>{" "}
+                    {history.effectiveDate
+                      ? new Date(
                           history.effectiveDate
-                        ).toLocaleDateString()}
-                      </p>
+                        ).toLocaleDateString()
+                      : "N/A"}
+                  </p>
 
-                      <p>
-                        <strong>
-                          Applied
-                          Date:
-                        </strong>{" "}
-                        {new Date(
-                          history.appliedAt?.seconds *
+                  <p>
+                    <strong>
+                      Applied At:
+                    </strong>{" "}
+                    {history.appliedAt
+                      ?.seconds
+                      ? new Date(
+                          history.appliedAt.seconds *
                             1000
-                        ).toLocaleDateString()}
-                      </p>
-                    </div>
-                  )
-                )}
-              </div>
+                        ).toLocaleString()
+                      : "N/A"}
+                  </p>
+                </div>
+              )
             )}
           </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }

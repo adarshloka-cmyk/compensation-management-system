@@ -1,7 +1,5 @@
 import { useState } from "react";
 
-import { auth, db } from "../firebase";
-
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -10,58 +8,95 @@ import {
 import {
   doc,
   setDoc,
-  getDocs,
-  collection,
 } from "firebase/firestore";
 
-export default function Login() {
-  const [email, setEmail] = useState("");
+import { auth, db } from "../firebase";
 
-  const [password, setPassword] =
+export default function Login() {
+  /* LOGIN / REGISTER MODE */
+
+  const [isRegister, setIsRegister] =
+    useState(false);
+
+  /* FORM STATES */
+
+  const [email, setEmail] =
     useState("");
 
-  const [salary, setSalary] =
+  const [password, setPassword] =
     useState("");
 
   const [role, setRole] =
     useState("employee");
 
-  const [isRegister, setIsRegister] =
+  const [salary, setSalary] =
+    useState("");
+
+  const [loading, setLoading] =
     useState(false);
 
-  const handleAuth = async () => {
-    try {
-      if (isRegister) {
-        if (!salary || Number(salary) <= 0) {
+  /* VALIDATE EMAIL */
+
+  const isValidEmail = (
+    value
+  ) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+      value
+    );
+  };
+
+  /* HANDLE REGISTER */
+
+  const handleRegister =
+    async () => {
+      try {
+        /* VALIDATION */
+
+        if (!email.trim()) {
           alert(
-            "Please enter valid salary"
+            "Email is required"
           );
 
           return;
         }
 
-        const existingUsers =
-          await getDocs(
-            collection(db, "users")
-          );
-
-        let duplicateEmail = false;
-
-        existingUsers.forEach((docSnap) => {
-          const data = docSnap.data();
-
-          if (data.email === email) {
-            duplicateEmail = true;
-          }
-        });
-
-        if (duplicateEmail) {
+        if (
+          !isValidEmail(email)
+        ) {
           alert(
-            "Email already registered"
+            "Enter valid email address"
           );
 
           return;
         }
+
+        if (
+          password.length < 6
+        ) {
+          alert(
+            "Password must contain at least 6 characters"
+          );
+
+          return;
+        }
+
+        if (
+          role ===
+            "employee" &&
+          (!salary ||
+            Number(salary) <=
+              0)
+        ) {
+          alert(
+            "Enter valid starting salary"
+          );
+
+          return;
+        }
+
+        setLoading(true);
+
+        /* CREATE AUTH USER */
 
         const userCredential =
           await createUserWithEmailAndPassword(
@@ -70,109 +105,293 @@ export default function Login() {
             password
           );
 
-        const user = userCredential.user;
+        const user =
+          userCredential.user;
+
+        /* CREATE FIRESTORE USER */
 
         await setDoc(
-          doc(db, "users", user.uid),
+          doc(
+            db,
+            "users",
+            user.uid
+          ),
           {
             email,
 
             role,
 
             currentSalary:
-              Number(salary),
+              role ===
+              "employee"
+                ? Number(
+                    salary
+                  )
+                : 0,
 
             effectiveDate:
               new Date().toISOString(),
-
-            createdAt: new Date(),
           }
         );
 
-        alert("Registration successful");
-      } else {
+        alert(
+          "Account created successfully"
+        );
+
+        /* RESET FORM */
+
+        setEmail("");
+
+        setPassword("");
+
+        setSalary("");
+
+        setRole(
+          "employee"
+        );
+      } catch (error) {
+        console.log(error);
+
+        if (
+          error.code ===
+          "auth/email-already-in-use"
+        ) {
+          alert(
+            "Email already exists"
+          );
+        } else {
+          alert(
+            "Registration failed"
+          );
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+  /* HANDLE LOGIN */
+
+  const handleLogin =
+    async () => {
+      try {
+        if (!email.trim()) {
+          alert(
+            "Email is required"
+          );
+
+          return;
+        }
+
+        if (
+          !password.trim()
+        ) {
+          alert(
+            "Password is required"
+          );
+
+          return;
+        }
+
+        setLoading(true);
+
         await signInWithEmailAndPassword(
           auth,
           email,
           password
         );
 
-        alert("Login successful");
-      }
-    } catch (error) {
-      console.log(error);
+        alert(
+          "Login successful"
+        );
+      } catch (error) {
+        console.log(error);
 
-      alert(error.message);
-    }
-  };
+        alert(
+          "Invalid email or password"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
 
   return (
-    <div className="login-container">
-      <h1>
-        Compensation Management App
-      </h1>
+    <div className="login-page">
+      <div className="login-container">
+        {/* HEADER */}
 
-      <input
-        type="email"
-        placeholder="Enter Email"
-        value={email}
-        onChange={(e) =>
-          setEmail(e.target.value)
-        }
-      />
+        <div
+          style={{
+            textAlign: "center",
+            marginBottom:
+              "15px",
+          }}
+        >
+          <h1>
+            Compensation
+            Management
+          </h1>
 
-      <input
-        type="password"
-        placeholder="Enter Password"
-        value={password}
-        onChange={(e) =>
-          setPassword(e.target.value)
-        }
-      />
+          <p
+            style={{
+              marginTop:
+                "10px",
 
-      {isRegister && (
-        <>
+              opacity: 0.75,
+
+              lineHeight:
+                "1.6",
+            }}
+          >
+            Secure compensation
+            review and salary
+            management platform
+          </p>
+        </div>
+
+        {/* FORM */}
+
+        <div
+          style={{
+            display: "flex",
+
+            flexDirection:
+              "column",
+
+            gap: "18px",
+          }}
+        >
+          {/* EMAIL */}
+
           <input
-            type="number"
-            placeholder="Enter Current Salary"
-            value={salary}
+            type="email"
+            placeholder="Enter Email"
+            value={email}
             onChange={(e) =>
-              setSalary(e.target.value)
+              setEmail(
+                e.target.value
+              )
             }
           />
 
-          <select
-            value={role}
+          {/* PASSWORD */}
+
+          <input
+            type="password"
+            placeholder="Enter Password"
+            value={password}
             onChange={(e) =>
-              setRole(e.target.value)
+              setPassword(
+                e.target.value
+              )
             }
+          />
+
+          {/* REGISTER FIELDS */}
+
+          {isRegister && (
+            <>
+              {/* ROLE */}
+
+              <select
+                value={role}
+                onChange={(e) =>
+                  setRole(
+                    e.target.value
+                  )
+                }
+              >
+                <option value="employee">
+                  Employee
+                </option>
+
+                <option value="admin">
+                  Admin
+                </option>
+              </select>
+
+              {/* SALARY */}
+
+              {role ===
+                "employee" && (
+                <input
+                  type="number"
+                  placeholder="Starting Salary"
+                  value={salary}
+                  onChange={(
+                    e
+                  ) =>
+                    setSalary(
+                      e.target
+                        .value
+                    )
+                  }
+                />
+              )}
+            </>
+          )}
+
+          {/* ACTION BUTTON */}
+
+          <button
+            onClick={
+              isRegister
+                ? handleRegister
+                : handleLogin
+            }
+            disabled={loading}
           >
-            <option value="employee">
-              Employee
-            </option>
+            {loading
+              ? "Please Wait..."
+              : isRegister
+              ? "Create Account"
+              : "Login"}
+          </button>
 
-            <option value="admin">
-              Administrator
-            </option>
-          </select>
-        </>
-      )}
+          {/* SWITCH MODE */}
 
-      <button onClick={handleAuth}>
-        {isRegister
-          ? "Register"
-          : "Login"}
-      </button>
+          <p
+            style={{
+              textAlign:
+                "center",
 
-      <p
-        onClick={() =>
-          setIsRegister(!isRegister)
-        }
-      >
-        {isRegister
-          ? "Already have an account? Login"
-          : "Create New Account"}
-      </p>
+              marginTop:
+                "8px",
+
+              lineHeight:
+                "1.7",
+            }}
+          >
+            {isRegister
+              ? "Already have an account?"
+              : "Don't have an account?"}
+
+            <span
+              onClick={() =>
+                setIsRegister(
+                  !isRegister
+                )
+              }
+              style={{
+                color:
+                  "#60a5fa",
+
+                marginLeft:
+                  "8px",
+
+                cursor:
+                  "pointer",
+
+                fontWeight:
+                  "600",
+              }}
+            >
+              {isRegister
+                ? "Login"
+                : "Register"}
+            </span>
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
