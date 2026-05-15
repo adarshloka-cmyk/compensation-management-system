@@ -1,455 +1,314 @@
-# Compensation Management System
+Compensation Management App
 
-A full-stack Compensation Management System built to replace spreadsheet-based employee salary review workflows with a centralized and secure platform.
+A full-stack compensation management platform built for the hackathon assignment.
+The system allows compensation administrators to manage salary review cycles, create salary adjustment proposals, approve/reject proposals with proper authorization rules, and maintain employee salary history securely.
 
-The application allows compensation administrators to create salary review cycles, propose salary changes, approve/reject proposals with budget validation, and maintain immutable salary history records. Employees can securely access only their own compensation information and salary history.
+Hosting URL: https://compensation-management-app.web.app
 
----
 
-# Features
-
-## Authentication & Authorization
-
-* Firebase Authentication based login and registration
-* Role-based access control (Admin / Employee)
-* Employees can access only their own salary information
-* Admin-only access to review cycles and salary proposals
-* Session persistence across refresh/restart
-
-## Review Cycle Management
-
-* Create salary review cycles
-* Configure:
-
-  * cycle title
-  * effective date
-  * budget
-* Open / Closed cycle states
-* Prevent closing cycles with unresolved proposals
-
-## Salary Proposal Workflow
-
-* Create salary adjustment proposals
-* Current employee salary preview
-* Automatic proposal cost calculation
-* Proposal justification support
-* Approve / Reject proposals
-* Multi-admin approval workflow
-* Self-approval prevention
-
-## Budget Enforcement
-
-* Approval blocked when cycle budget is exceeded
-* Remaining budget validation shown during approval
-
-## Salary History
-
-* Immutable salary history tracking
-* Previous salary
-* New salary
-* Effective date
-* Applied date
-* Change type
-
-## Proposal Management
-
-* Filtering by:
-
-  * status
-  * cycle
-  * employee
-* Sorting by proposal cost
-* Pagination support
-
-## UI/UX
-
-* Modern glassmorphism dashboard
-* Sidebar navigation
-* Responsive layout
-* Hover animations and transitions
-
----
-
-# Setup & Run Instructions
-
-## Prerequisites
-
-Install the following:
-
-* Node.js
-* npm
-* Firebase account
+GitHub Repository: https://github.com/adarshloka-cmyk/compensation-management-system
 
 
 
-# Tech Stack & Rationale
 
-## Frontend
+Features:
+Authentication
+User registration and login
+Firebase Authentication integration
+Role-based access control
+Separate admin and employee dashboards
+Secure authenticated routes
+Employee Features
+View current salary
+View salary effective date
+View salary history
+Real-time salary updates after approvals
+Restricted access to own records only
+Administrator Features
+Create review cycles
+Create salary proposals
+Edit/delete proposals
+Approve/reject proposals
+Prevent self-approval of proposals
+Budget validation
+Close review cycles
+Salary history generation
+Filtering, sorting, and pagination
 
-### React.js + Vite
 
-Chosen because:
+Setup & Run Instructions
+1. Clone the repository
+2. Navigate into the project
+cd compensation-management-system
+3. Install dependencies
+npm install
+4. Configure Firebase
 
-* Fast development speed
-* Excellent component architecture
-* Lightweight setup for hackathon timeline
-* Vite provides very fast local development and builds
 
----
+Create a Firebase project and enable:
 
-## Authentication
+Firebase Authentication
+Firestore Database
 
-### Firebase Authentication
+Create a .env file and add:
 
-Chosen because:
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+5. Start the development server
+npm run dev
+6. Open the application
+http://localhost:5173
 
-* Easy secure authentication setup
-* Password hashing handled automatically by Firebase
-* Reliable session management
-* Reduced backend implementation time
+The application should now run locally.
 
-Password hashing is securely managed internally by Firebase Authentication.
-No plaintext passwords are stored anywhere in the application.
+Tech Stack & Rationale
+Frontend
+React.js
+Vite
+CSS3
 
----
 
-## Database
+Why React?
 
-### Firebase Firestore
+React provides component-based architecture, fast UI rendering, reusable components, and simplified state management for dashboard-style applications.
 
-Chosen because:
+Why Vite?
 
-* Real-time cloud database
-* No backend server setup required
-* Persistent storage across restarts
-* Flexible document-based schema
-* Rapid development suitable for 6-hour build window
+Vite offers faster development startup and hot module replacement compared to traditional bundlers.
 
-Collections used:
+Backend / Database
+Firebase Firestore
+Why Firestore?
 
-* users
-* reviewCycles
-* proposals
-* salaryHistory
+Firestore was chosen because:
 
----
+It provides persistent cloud-hosted storage
+Real-time updates are easy to implement
+No separate backend server was required
+Easy integration with React
+Suitable for rapid prototyping within the hackathon time limit
+Authentication
+Firebase Authentication
+Password Hashing Approach
 
-## Styling
+Passwords are handled securely by Firebase Authentication.
+Firebase stores passwords using industry-standard secure hashing internally, so plaintext password storage is never exposed to the application.
 
-### CSS
+Architectural Overview
 
-Custom CSS was used for:
+The application follows a simple component-based frontend architecture.
 
-* Glassmorphism UI
-* Responsive layouts
-* Sidebar navigation
-* Animations and hover effects
-
----
-
-# Architectural Overview
-
-The application follows a modular component-based frontend architecture.
-
-## Key Files
-
-### App.jsx
-
-* Root application component
-* Handles authentication state
-* Controls role-based rendering
-* Sidebar navigation handling
-
----
-
-### firebase.js
-
-* Firebase initialization
-* Authentication configuration
-* Firestore setup
-
----
-
-### pages/Login.jsx
+Main Structure
+App.jsx
+Root component
+Handles authentication state
+Controls routing between admin and employee dashboards
+Login.jsx
+Handles:
+User registration
+User login
+Role selection
+Creates Firestore user records
+AdminDashboard.jsx
 
 Handles:
 
-* Login
-* Registration
-* Role selection
-* User creation
-
----
-
-### pages/AdminDashboard.jsx
-
-Handles:
-
-* Review cycle creation
-* Proposal creation
-* Proposal approval/rejection
-* Budget validation
-* Filtering and sorting
-* Pagination
-* Closing review cycles
-
----
-
-### pages/EmployeeDashboard.jsx
+Review cycle creation
+Proposal creation
+Proposal approval/rejection
+Salary updates
+Salary history generation
+Filtering/sorting/pagination
+EmployeeDashboard.jsx
 
 Handles:
 
-* Employee salary view
-* Salary history view
-* Restricted employee-only access
+Current salary display
+Salary history display
+Automatic refresh of updated salary data
+firebase.js
 
----
+Contains Firebase configuration and initialization.
 
-### App.css
+App.css
 
-Contains:
+Contains complete application styling:
 
-* Layout styling
-* Sidebar design
-* Glassmorphism UI
-* Responsive behavior
-* Animations
+Glassmorphism UI
+Responsive layouts
+Sidebar navigation
+Cards and dashboard styling
+Database Structure
 
----
+The Firestore database contains the following collections:
 
-# How AI Tools Were Used
+users
 
-AI tools were actively used throughout development to accelerate implementation within the 6-hour hackathon constraint.
+Stores:
 
-## AI Tools Used
+email
+role
+current salary
+effective date
+reviewCycles
 
-* ChatGPT
+Stores:
 
----
+cycle title
+budget
+effective date
+status
+created-by details
+proposals
 
-## AI-Assisted Areas
+Stores:
 
-* Initial project planning
-* React component generation
-* Firebase integration guidance
-* UI styling improvements
-* Pagination and filtering logic
-* Proposal approval workflow
-* README drafting
-* Validation logic suggestions
+employee details
+proposal details
+current salary snapshot
+proposed salary
+status
+approval/rejection metadata
+salaryHistory
 
----
+Stores immutable salary history records.
 
-## Manually Reviewed / Edited
+How AI Tools Were Used
 
-All AI-generated code was manually:
+AI tools were used extensively during development for:
 
-* reviewed
-* tested
-* debugged
-* modified
-* reorganized
+UI structuring
+React component scaffolding
+Firestore integration guidance
+Business logic refinement
+Validation logic
+README drafting
+AI Assistants Used
+ChatGPT
+AI-Generated / Assisted Areas
+Initial React component structures
+Styling ideas and UI improvements
+Firestore query patterns
+Validation logic suggestions
+Proposal workflow logic
+README drafting assistance
+Hand-Written / Manually Reviewed Areas
+Final business rule implementation
+Role-based access logic
+Proposal approval restrictions
+Salary update workflow
+Final debugging and integration
+Firebase configuration
+Final testing and verification
+Reviewed / Rejected Suggestions
 
-Several generated implementations were simplified or rewritten to better fit:
+Several generated suggestions were modified or rejected during implementation, especially:
 
-* business requirements
-* UI consistency
-* Firebase architecture
-* hackathon scope
+Proposal approval workflows
+Sorting and filtering logic
+Cycle-closing behavior
+Salary synchronization logic
 
----
+All final logic was manually tested and verified before submission.
 
-## Observations
+Assumptions
 
-AI significantly accelerated:
+The following assumptions were made during development:
 
-* UI generation
-* repetitive CRUD logic
-* layout creation
-* architectural brainstorming
+Administrator Creation
 
-However, business-rule correctness (approval restrictions, budget enforcement, role separation) still required careful manual validation and debugging.
+Administrators are created during registration by selecting the admin role.
 
----
+Default Employee Salary
 
-# Assumptions
+New employees are initialized with a default salary value during account creation.
 
-## Admin Role Creation
+Default value used:
 
-For hackathon simplicity, users can self-select:
+500000
+Review Cycle Dates
 
-* employee
-* admin
+The system uses a single effective date for salary application instead of separate start/end dates.
 
-at registration time.
+Immediate Salary Update
 
-In production, admin creation would instead be restricted using:
+Employee salary updates occur immediately after proposal approval so future proposals use the latest salary value.
 
-* invite-only onboarding
-* backend authorization
-* protected admin APIs
 
----
 
-## Starting Salary
+Trade-Offs:
 
-New users manually enter their starting salary during registration.
+Given the 6-hour development constraint, the following trade-offs were made:
 
----
+Firebase was used instead of building a custom backend API
+Styling and responsiveness were prioritized over advanced animations
+Firestore client-side filtering was used instead of server-side querying optimization
+No advanced audit logging system was implemented
+No email notifications were implemented
+No advanced role hierarchy beyond admin/employee
 
-## Budget Validation
+These choices allowed focus on implementing the required business logic completely within the available time.
 
-Proposals may exceed the budget during creation, but approval is blocked if approving would exceed the cycle budget.
 
-This reflects realistic enterprise workflows where proposals are drafted first and financially reviewed later.
 
----
+Future Work:
 
-## Storage
+With additional time, the following improvements would be added:
 
-Firestore serves as both:
+Dedicated backend API layer
+Advanced role management
+Real-time notifications
+Better responsive mobile design
+Advanced analytics dashboard
+Export reports to PDF/Excel
+Improved Firestore security rules
+Search optimization
+Better cycle budgeting analytics
+Unit and integration testing
+CI/CD pipeline integration
+Validation Rules Implemented
 
-* primary database
-* persistent storage layer
 
-No separate backend server was implemented.
+The system validates:
 
----
+Unique email registration
+Positive review cycle budget
+Non-empty cycle title
+Non-empty justification
+Proposed salary must exceed current salary
+Prevention of self-approval/self-rejection
+Restriction of employee access to other employee data
+Deployment
 
-# Trade-offs
+The project is deployed using Firebase Hosting.
 
-Given the 6-hour development constraint, several trade-offs were intentionally made.
+Incremental Commit History
 
-## Prioritized
+The repository includes multiple incremental commits showing:
 
-* Core business logic
-* Proposal workflow correctness
-* Budget validation
-* Role isolation
-* Persistent storage
-* End-to-end usability
+Authentication setup
+Dashboard creation
+Proposal workflow
+Salary update logic
+UI improvements
+Final bug fixes and validations
 
----
+Single-commit submission was intentionally avoided to demonstrate development progression clearly.
 
-## Deprioritized
 
-### Backend Server
 
-A dedicated backend API layer was skipped to reduce development time.
+Final Notes:
 
-### Production Security
+This project focuses heavily on:
 
-Firestore rules are intentionally simplified for rapid hackathon setup.
+Correct business rule implementation
+Data consistency
+Secure role-based access
+Clear workflow management
+Persistent salary history tracking
 
-### Advanced Analytics
-
-No dashboards/charts/reporting were added.
-
-### Enterprise Role Management
-
-Admin creation is simplified.
-
-### Unit Testing
-
-Formal automated testing was not implemented due to time constraints.
-
-### Optimized Querying
-
-Firestore indexing and advanced query optimization were not deeply tuned.
-
----
-
-# Future Work
-
-With more time, the following improvements would be added.
-
-## Security
-
-* Proper Firestore security rules
-* Protected admin creation
-* Backend validation APIs
-* JWT/session validation layer
-
----
-
-## Backend
-
-* Dedicated Node.js/Express backend
-* REST API layer
-* Server-side business rule enforcement
-
----
-
-## Advanced Features
-
-* Notifications/email alerts
-* Audit dashboards
-* Budget analytics
-* Employee search optimization
-* Multi-department support
-* Bulk proposal upload
-* Approval chains/workflows
-
----
-
-## Performance
-
-* Firestore indexing optimization
-* Lazy loading
-* Better pagination
-* Query optimization
-
----
-
-## UI/UX
-
-* Charts and analytics
-* Dark/light themes
-* Better accessibility
-* Improved mobile experience
-
----
-
-# Incremental Commit History
-
-The repository contains incremental commits showing:
-
-* authentication setup
-* dashboard creation
-* proposal workflow implementation
-* UI improvements
-* pagination/filtering additions
-* sidebar navigation
-* final polishing
-
-This demonstrates the development progression throughout the hackathon.
-
----
-
-# Demo Flow
-
-Recommended demo sequence:
-
-1. Register employee
-2. Register admin
-3. Create review cycle
-4. Create salary proposal
-5. Approve proposal using different admin
-6. Demonstrate budget validation
-7. Close cycle
-8. Login as employee
-9. Verify updated salary and salary history
-
----
-
-# Conclusion
-
-This project demonstrates a fully working end-to-end compensation management workflow system focused on:
-
-* business rule correctness
-* role-based security
-* budget validation
-* salary auditability
-* modern dashboard UX
-
-while remaining achievable within a strict 6-hour hackathon development window.
+The application was manually tested across major functional flows before submission.
